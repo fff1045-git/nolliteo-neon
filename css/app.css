@@ -563,3 +563,4 @@ body.no-tabs #view { padding-bottom: calc(var(--safe-b) + 110px); }
   .cat { gap: 8px; padding: 6px 8px; font-size: 13px; word-break: keep-all; }
   .cat .ic { width: 34px; height: 34px; }
 }
+.day.next { font-size: 0; }
