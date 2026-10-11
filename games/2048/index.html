@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>2048 머지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@700&display=swap">
+<style>
+  :root { --ink: #0B0A1F; --size: 340px; --gap: 10px; --cell: 72.5px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  body {
+    background:
+      radial-gradient(90vw 60vh at 10% 0%, rgba(123,92,255,.38), transparent 70%),
+      radial-gradient(70vw 50vh at 100% 20%, rgba(255,61,168,.22), transparent 70%),
+      radial-gradient(90vw 50vh at 50% 105%, rgba(34,225,255,.14), transparent 70%),
+      #0B0A1F;
+    font-family: "Black Han Sans", sans-serif; color: #F4F2FF;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .head { width: var(--size); display: flex; align-items: stretch; gap: 8px; }
+  .logo { background: linear-gradient(135deg, #22E1FF, #8B5CFF 55%, #FF3DA8); color: #fff; border-radius: 16px; font-size: 24px; padding: 0 12px; display: grid; place-items: center; box-shadow: 0 0 20px rgba(139,92,255,.6); }
+  .box { flex: 1; min-width: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16); border-radius: 16px; text-align: center; padding: 5px 6px; line-height: 1.15; }
+  .box small { font-family: "Noto Sans KR", sans-serif; font-weight: 700; font-size: 11px; color: #A9A3D1; display: block; }
+  .box b { font-weight: 400; font-size: 22px; color: #fff; display: block; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 12px rgba(34,225,255,.7); }
+  button { font: inherit; cursor: pointer; }
+  .restart { min-width: 48px; border: 1px solid rgba(255,255,255,.22); border-radius: 16px; background: rgba(255,255,255,.08); color: #fff; display: grid; place-items: center; padding: 0 8px; }
+  .restart:active, .btn:active { transform: scale(.96); }
+  .board { position: relative; width: var(--size); height: var(--size); background: rgba(16,14,40,.85); border: 2px solid rgba(139,92,255,.75); border-radius: 24px; padding: var(--gap); box-shadow: 0 0 30px rgba(123,92,255,.55), inset 0 0 30px rgba(123,92,255,.15); }
+  .bg { position: absolute; width: var(--cell); height: var(--cell); border-radius: 14px; background: rgba(255,255,255,.045); }
+  .tile { position: absolute; left: 0; top: 0; width: var(--cell); height: var(--cell); transition: transform 110ms ease-in-out; z-index: 2; }
+  .tile .in { width: 100%; height: 100%; border-radius: 16px; display: grid; place-items: center; color: #fff; position: relative; overflow: hidden; border: 1.5px solid rgba(255,255,255,.55); text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+  .tile .in::after { content: ''; position: absolute; left: 14%; top: 9%; width: 42%; height: 13%; border-radius: 9px; background: rgba(255,255,255,.45); }
+  .tile.new .in { animation: appear 160ms ease-out 90ms backwards; }
+  .tile.merged { z-index: 3; }
+  .tile.merged .in { animation: pop 180ms ease-out; }
+  @keyframes appear { from { transform: scale(0); } }
+  @keyframes pop { 50% { transform: scale(1.18); } }
+  .hint { font-family: "Noto Sans KR", sans-serif; font-weight: 700; font-size: 13px; color: rgba(244,242,255,.55); text-align: center; }
+  .over { position: fixed; inset: 0; background: rgba(5,4,16,.7); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); display: none; place-items: center; z-index: 10; }
+  .over.on { display: grid; }
+  .panel { width: min(84vw, 330px); background: rgba(24,21,56,.94); color: #F4F2FF; border: 1.5px solid rgba(123,92,255,.7); border-radius: 28px; box-shadow: 0 0 40px rgba(123,92,255,.45); padding: 24px 20px 20px; text-align: center; animation: pop 250ms ease-out; }
+  .panel h2 { margin: 0; font-weight: 400; font-size: 30px; }
+  .panel p { font-family: "Noto Sans KR", sans-serif; font-size: 14px; color: #A9A3D1; margin: 8px 0 0; }
+  .panel .s { font-size: 50px; color: #fff; line-height: 1.1; margin-top: 6px; text-shadow: 0 0 18px rgba(34,225,255,.7); }
+  .btn { margin-top: 14px; width: 100%; min-height: 54px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #7B5CFF, #FF3DA8); box-shadow: 0 0 22px rgba(255,61,168,.45); font-size: 20px; color: #fff; }
+  .btn.ghost { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); box-shadow: none; }
+  .toast { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); background: rgba(24,21,56,.92); color: #fff; border: 1.5px solid #22E1FF; border-radius: 999px; padding: 6px 18px; font-size: 19px; box-shadow: 0 0 24px rgba(34,225,255,.5); opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 5; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="logo" aria-hidden="true">2048</div>
+    <div class="box"><small>점수</small><b id="score">0</b></div>
+    <div class="box"><small>최고</small><b id="best">0</b></div>
+    <button class="restart" id="restart" aria-label="새 게임">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></svg>
+    </button>
+  </div>
+  <div class="board" id="board" aria-label="2048 게임 판" role="application"></div>
+  <p class="hint">위아래·좌우로 밀어서 같은 숫자를 합치세요 · 키보드 방향키도 돼요</p>
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="over" id="over" role="dialog" aria-label="게임 결과">
+    <div class="panel">
+      <h2 id="overTitle">더 움직일 수 없어요</h2>
+      <div class="s" id="overScore">0</div>
+      <p id="overSub">최고 기록 0</p>
+      <button class="btn" id="overMain">다시 하기</button>
+      <button class="btn ghost" id="overAlt" hidden>새 게임</button>
+    </div>
+  </div>
+
+<script src="../../sdk/playground-sdk.js" data-game="2048"></script>
+<script>
+(() => {
+  'use strict';
+  const N = 4;
+  // 숫자별 젤리 색 (위가 밝은 그라데이션)
+  const STYLE = {
+    2: ['#5B6CFF', '#3D3FD0'], 4: ['#7B5CFF', '#5A3BE0'], 8: ['#22E1FF', '#0FA3D6'], 16: ['#2EE6A6', '#13B07C'],
+    32: ['#B8FF3D', '#7CC81A'], 64: ['#FFC23D', '#E58E10'], 128: ['#FF7A3D', '#E0491A'], 256: ['#FF3DA8', '#D21C7E'],
+    512: ['#E04BFF', '#A51FD6'], 1024: ['#FF5C7A', '#D62A4A'], 2048: ['#FFE15C', '#FF8A00'],
+  };
+  const boardEl = document.getElementById('board');
+  const $ = id => document.getElementById(id);
+  let grid, tiles, score, best = 0, won = false, keepGoing = false, over = false, started = false, busy = false, nextId = 1;
+  let cell = 72, gap = 10;
+
+  // ---------- 배치 ----------
+  function layout() {
+    const size = Math.floor(Math.min(window.innerWidth - 24, (window.innerHeight - 170), 480));
+    gap = Math.max(6, Math.round(size * .03));
+    cell = (size - 6 - gap * (N + 1)) / N;
+    document.documentElement.style.setProperty('--size', size + 'px');
+    document.documentElement.style.setProperty('--gap', gap + 'px');
+    document.documentElement.style.setProperty('--cell', cell + 'px');
+    boardEl.querySelectorAll('.bg').forEach(b => b.remove());
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const b = document.createElement('div'); b.className = 'bg';
+      b.style.left = (gap + c * (cell + gap)) + 'px'; b.style.top = (gap + r * (cell + gap)) + 'px';
+      boardEl.prepend(b);
+    }
+    tiles?.forEach(t => { position(t); font(t); });
+  }
+  const xy = (r, c) => [gap + c * (cell + gap), gap + r * (cell + gap)];
+  function position(t) { const [x, y] = xy(t.r, t.c); t.el.style.transform = `translate(${x}px, ${y}px)`; }
+  function font(t) {
+    const d = String(t.v).length;
+    t.el.firstChild.style.fontSize = Math.round(cell * (d <= 2 ? .5 : d === 3 ? .4 : .32)) + 'px';
+  }
+  function paint(t) {
+    const [top, bottom] = STYLE[t.v] || ['#2A2650', '#15132E'];
+    const inEl = t.el.firstChild;
+    inEl.style.background = `linear-gradient(180deg, ${top}, ${bottom})`;
+    inEl.style.boxShadow = `0 0 ${t.v >= 128 ? 22 : 12}px ${top}99`;
+    inEl.style.color = t.v === 32 || t.v === 2048 ? '#1A1033' : '#fff';
+    inEl.textContent = t.v;
+    font(t);
+  }
+  function makeTile(v, r, c, cls) {
+    const el = document.createElement('div');
+    el.className = 'tile ' + (cls || '');
+    el.innerHTML = '<div class="in"></div>';
+    const t = { id: nextId++, v, r, c, el };
+    paint(t); position(t);
+    boardEl.append(el);
+    return t;
+  }
+
+  // ---------- 상태 ----------
+  function emptyCells() {
+    const out = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!grid[r][c]) out.push([r, c]);
+    return out;
+  }
+  function spawn() {
+    const e = emptyCells();
+    if (!e.length) return;
+    const [r, c] = e[Math.floor(Math.random() * e.length)];
+    const t = makeTile(Math.random() < .9 ? 2 : 4, r, c, 'new');
+    grid[r][c] = t; tiles.push(t);
+  }
+  function clearBoard() { tiles?.forEach(t => t.el.remove()); tiles = []; grid = Array.from({ length: N }, () => Array(N).fill(null)); }
+  function newGame() {
+    clearBoard(); score = 0; won = false; keepGoing = false; over = false; started = false;
+    spawn(); spawn();
+    $('over').classList.remove('on');
+    updateScore(); persist();
+  }
+  function snapshot() { return grid.map(row => row.map(t => (t ? t.v : 0))); }
+  function persist() { PG.save(over ? { best } : { cells: snapshot(), score, best, won, keepGoing }); }
+  function updateScore() {
+    if (score > best) best = score;
+    $('score').textContent = score.toLocaleString('ko-KR');
+    $('best').textContent = best.toLocaleString('ko-KR');
+    PG.score(score);
+  }
+
+  // ---------- 이동 ----------
+  const DIRS = { left: [0, -1], right: [0, 1], up: [-1, 0], down: [1, 0] };
+  function move(dir) {
+    if (busy || over || $('over').classList.contains('on')) return;
+    const [dr, dc] = DIRS[dir];
+    const order = [...Array(N).keys()];
+    const rows = dr === 1 ? order.slice().reverse() : order;
+    const cols = dc === 1 ? order.slice().reverse() : order;
+    let moved = false, gained = 0;
+    const mergedInto = new Set();
+    const removing = [];
+
+    for (const r of rows) for (const c of cols) {
+      const t = grid[r][c];
+      if (!t) continue;
+      let nr = r, nc = c;
+      while (true) {
+        const tr = nr + dr, tc = nc + dc;
+        if (tr < 0 || tc < 0 || tr >= N || tc >= N) break;
+        const o = grid[tr][tc];
+        if (!o) { nr = tr; nc = tc; continue; }
+        if (o.v === t.v && !mergedInto.has(o.id)) { nr = tr; nc = tc; }
+        break;
+      }
+      if (nr === r && nc === c) continue;
+      moved = true;
+      grid[r][c] = null;
+      const target = grid[nr][nc];
+      t.r = nr; t.c = nc; position(t);
+      if (target) {
+        // 합치기: 이동한 타일은 사라지고, 목표 타일 숫자가 두 배
+        mergedInto.add(target.id);
+        target.v *= 2; gained += target.v;
+        removing.push([t, target]);
+      } else grid[nr][nc] = t;
+    }
+    if (!moved) return;
+    if (!started) { started = true; PG.gameStart(); }
+    busy = true;
+    score += gained;
+    setTimeout(() => {
+      for (const [t, target] of removing) {
+        t.el.remove(); tiles = tiles.filter(x => x !== t);
+        paint(target); target.el.classList.remove('merged'); void target.el.offsetWidth; target.el.classList.add('merged');
+      }
+      tiles.forEach(t => t.el.classList.remove('new'));
+      spawn();
+      updateScore();
+      busy = false;
+      if (gained) PG.vibrate(12);
+      if (!won && tiles.some(t => t.v >= 2048)) { won = true; persist(); showWin(); return; }
+      if (!canMove()) { lose(); return; }
+      persist();
+    }, 115);
+  }
+  function canMove() {
+    if (emptyCells().length) return true;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const v = grid[r][c].v;
+      if ((c + 1 < N && grid[r][c + 1].v === v) || (r + 1 < N && grid[r + 1][c].v === v)) return true;
+    }
+    return false;
+  }
+  function lose() {
+    over = true; started = false;
+    persist();
+    PG.gameOver(score);
+    setTimeout(() => panel('더 움직일 수 없어요', score, `최고 기록 ${best.toLocaleString('ko-KR')}`, '다시 하기', null), 500);
+  }
+  function showWin() { panel('2048 달성!', score, '대단해요! 더 큰 숫자에 도전해 볼까요?', '계속하기', '새 게임'); }
+  let onMain = null, onAlt = null;
+  function panel(title, s, sub, main, alt) {
+    $('overTitle').textContent = title;
+    $('overScore').textContent = s.toLocaleString('ko-KR');
+    $('overSub').textContent = sub;
+    $('overMain').textContent = main;
+    $('overAlt').hidden = !alt;
+    if (alt) $('overAlt').textContent = alt;
+    onMain = over ? newGame : () => { keepGoing = true; $('over').classList.remove('on'); persist(); };
+    onAlt = () => { if (!over) { PG.gameOver(score); } newGame(); };
+    $('over').classList.add('on');
+    $('overMain').focus();
+  }
+  $('overMain').addEventListener('click', () => onMain && onMain());
+  $('overAlt').addEventListener('click', () => onAlt && onAlt());
+  $('restart').addEventListener('click', () => {
+    if (started && !over) PG.gameOver(score);
+    newGame();
+  });
+
+  // ---------- 입력: 스와이프 + 방향키 ----------
+  let sx = 0, sy = 0, tracking = false;
+  document.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; tracking = true; sx = e.clientX; sy = e.clientY; });
+  document.addEventListener('pointerup', e => {
+    if (!tracking) return; tracking = false;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  });
+  document.addEventListener('pointercancel', () => { tracking = false; });
+  const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
+  document.addEventListener('keydown', e => { const d = KEYS[e.key]; if (d) { e.preventDefault(); move(d); } });
+
+  function toast(text) { const t = $('toast'); t.textContent = text; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 1500); }
+
+  // ---------- 시작 (이어하기) ----------
+  window.addEventListener('resize', layout);
+  layout();
+  PG.load().then(save => {
+    if (save && typeof save.best === 'number') best = save.best;
+    if (save && Array.isArray(save.cells) && save.cells.length === N) {
+      clearBoard();
+      save.cells.forEach((row, r) => row.forEach((v, c) => { if (v) { const t = makeTile(v, r, c, 'new'); grid[r][c] = t; tiles.push(t); } }));
+      score = save.score || 0; won = !!save.won; keepGoing = !!save.keepGoing;
+      updateScore();
+      if (!tiles.length) newGame(); else toast('이어하기!');
+      if (tiles.length && !canMove()) newGame();
+    } else newGame();
+    PG.ready();
+  });
+})();
+</script>
+</body>
+</html>
